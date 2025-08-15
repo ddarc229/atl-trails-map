@@ -19,7 +19,8 @@ export default function App() {
 
   // Load GeoJSON data
   useEffect(() => {
-    fetch("/data/counties.geojson")
+    // Counties
+    fetch(`${import.meta.env.BASE_URL}data/counties.geojson`)
       .then((r) => r.json())
       .then((data) => {
         setCountiesData(data);
@@ -30,7 +31,8 @@ export default function App() {
       })
       .catch((e) => console.error("Failed to load counties.geojson", e));
 
-    fetch("/data/cities.geojson")
+    // Cities
+    fetch(`${import.meta.env.BASE_URL}data/cities.geojson`)
       .then((r) => r.json())
       .then((data) => {
         setCitiesData(data);
@@ -41,7 +43,8 @@ export default function App() {
       })
       .catch((e) => console.error("Failed to load cities.geojson", e));
 
-    fetch("/data/trails.geojson")
+    // Trails
+    fetch(`${import.meta.env.BASE_URL}data/trails.geojson`)
       .then((r) => r.json())
       .then((data) => setTrailsData(data))
       .catch((e) => console.error("Failed to load trails.geojson", e));
@@ -183,7 +186,7 @@ export default function App() {
         }}
       >
         <img
-          src="/arc-logo-trails-map.webp"
+          src={`${import.meta.env.BASE_URL}arc-logo-trails-map.webp`}
           alt="Logo"
           style={{ maxWidth: "120px", height: "auto" }}
         />
@@ -217,6 +220,7 @@ export default function App() {
               attribution="&copy; OpenStreetMap contributors"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+
             {countiesData && (
               <GeoJSON
                 data={countiesData}
@@ -234,7 +238,7 @@ export default function App() {
 
             {filteredTrails.map((feature) => (
               <GeoJSON
-                key={feature.properties?.OBJECTID} // unique key for proper re-render
+                key={feature.properties?.OBJECTID}
                 data={feature}
                 style={() => trailStyle(feature)}
                 onEachFeature={(feature, layer) => {
