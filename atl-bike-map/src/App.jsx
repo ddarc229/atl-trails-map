@@ -17,6 +17,7 @@ export default function App() {
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedTrailLayer, setSelectedTrailLayer] = useState(null);
 
+  // Load GeoJSON data
   useEffect(() => {
     fetch("/data/counties.geojson")
       .then((r) => r.json())
@@ -46,6 +47,12 @@ export default function App() {
       .catch((e) => console.error("Failed to load trails.geojson", e));
   }, []);
 
+  // Reset selected trail when filter changes
+  useEffect(() => {
+    setSelectedTrailLayer(null);
+  }, [selectedCounty, selectedCity]);
+
+  // Zoom to selected county
   useEffect(() => {
     if (!selectedCounty || !countiesData || !mapRef.current) return;
     const feature = countiesData.features.find(
@@ -57,6 +64,7 @@ export default function App() {
       });
   }, [selectedCounty, countiesData]);
 
+  // Zoom to selected city
   useEffect(() => {
     if (!selectedCity || !citiesData || !mapRef.current) return;
     const feature = citiesData.features.find(
@@ -68,6 +76,7 @@ export default function App() {
       });
   }, [selectedCity, citiesData]);
 
+  // Styles
   const countyStyle = () => ({ color: "#222", weight: 2, fill: false });
   const onEachCounty = (feature, layer) => {
     layer.bindTooltip(feature.properties?.NAME20 || "County");
@@ -85,10 +94,8 @@ export default function App() {
     layer.on("click", () => setSelectedCity(feature.properties?.Name));
   };
 
-  // Trail colors
   const trailBaseColor = "#EE575D";
   const trailClickColor = "#993940";
-
   const trailStyle = (feature) => {
     if (
       selectedTrailLayer?.feature?.properties?.OBJECTID ===
@@ -115,7 +122,45 @@ export default function App() {
     `;
   };
 
-  const filteredTrails = trailsData ? trailsData.features : [];
+  // Filter trails based on selected county/city using bounds intersection
+  const filteredTrails =
+    trailsData && mapRef.current
+      ? trailsData.features.filter((trail) => {
+          let show = false;
+
+          if (selectedCounty && countiesData) {
+            const countyFeature = countiesData.features.find(
+              (f) => f.properties?.NAME20 === selectedCounty
+            );
+            if (countyFeature) {
+              const countyBounds = L.geoJSON(countyFeature).getBounds();
+              const trailBounds = L.geoJSON(trail).getBounds();
+              if (countyBounds.intersects(trailBounds)) show = true;
+            }
+          }
+
+          if (!show && selectedCity && citiesData) {
+            const cityFeature = citiesData.features.find(
+              (f) => f.properties?.Name === selectedCity
+            );
+            if (cityFeature) {
+              const cityBounds = L.geoJSON(cityFeature).getBounds();
+              const trailBounds = L.geoJSON(trail).getBounds();
+              if (cityBounds.intersects(trailBounds)) show = true;
+            }
+          }
+
+          return show;
+        })
+      : [];
+
+  // Reset map function
+  const resetMap = () => {
+    setSelectedCounty("");
+    setSelectedCity("");
+    setSelectedTrailLayer(null);
+    if (mapRef.current) mapRef.current.setView([33.75, -84.39], 9);
+  };
 
   return (
     <div
@@ -158,6 +203,7 @@ export default function App() {
           setSelectedCounty={setSelectedCounty}
           selectedCity={selectedCity}
           setSelectedCity={setSelectedCity}
+          resetMap={resetMap}
         />
 
         <div style={{ flex: 1 }}>
@@ -171,7 +217,6 @@ export default function App() {
               attribution="&copy; OpenStreetMap contributors"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-
             {countiesData && (
               <GeoJSON
                 data={countiesData}
@@ -187,21 +232,19 @@ export default function App() {
               />
             )}
 
-            {filteredTrails.map((feature, idx) => (
+            {filteredTrails.map((feature) => (
               <GeoJSON
-                key={idx}
+                key={feature.properties?.OBJECTID} // unique key for proper re-render
                 data={feature}
                 style={() => trailStyle(feature)}
                 onEachFeature={(feature, layer) => {
                   layer.bindPopup(createTrailPopup(feature));
-
                   layer.on("click", () => {
                     setSelectedTrailLayer(layer);
                     const bounds = L.geoJSON(feature).getBounds();
                     mapRef.current.fitBounds(bounds, { padding: [50, 50] });
                     layer.openPopup();
                   });
-
                   layer.on("popupclose", () => setSelectedTrailLayer(null));
                 }}
               />
